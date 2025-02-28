@@ -1,1 +1,63 @@
-use stocazzo
+local user = c(username)
+display "`user'"
+if ("`user'" == "dariodipasquali"){
+global filepath "/Users/dariodipasquali/Desktop/PS1/files"
+}
+else{
+global filepath ""
+}
+
+if ("`user'" == "dariodipasquali"){
+global filepath_output "/Users/dariodipasquali/Desktop/PS1/ex"
+}
+else{
+global filepath ""
+}
+
+
+use "$filepath/jtrain2.dta", clear
+describe
+
+
+*1a)
+
+local Covariates "age educ black hisp nodegree re74 re75"
+*eststo totsample: estpost sum `Covariates'
+eststo control: estpost sum `Covariates' if train==0
+eststo treatment: estpost sum `Covariates' if train==1
+eststo groupdiff: estpost ttest `Covariates', by(train)
+
+*considering "All"
+*esttab totsample control treatment groupdiff, cells(mean(pattern(1 1 1 0) fmt(3)label(" "))& sd(pattern(1 1 1 0) fmt(3) par(( ))label(" ")) & b(pattern(0 0 0 1) fmt(3)label(" ")) & se(pattern(0 0 0 1) fmt(3) par([ ])label(" "))) title("TABLE 1") mtitles("All" "Control" "Treatment" "Difference (2)-(3)") modelwidth(20 20 20 20)
+
+esttab control treatment groupdiff, cells(mean(pattern(1 1 0) fmt(3)label(" "))& sd(pattern(1 1 0) fmt(3) par(( ))label(" ")) & b(pattern(0 0 1) fmt(3)label(" ")) & se(pattern(0 0 1) fmt(3) par([ ])label(" "))) title("TABLE 1") mtitles("Control" "Treatment" "Difference (2)-(3)") modelwidth(20 20 20 20) 
+*addnotes("Note: The numbers in parantheses are the standard deviations and those in" "square brackets are the standard errors.")
+	
+*saving Table_1
+esttab control treatment groupdiff  using "$filepath_output/Table_1.txt", cells(mean(pattern(1 1 0) fmt(3)label(" "))& sd(pattern(1 1 0) fmt(3) par(( ))label(" ")) & b(pattern(0 0 1) fmt(3)label(" ")) & se(pattern(0 0 1) fmt(3) par([ ])label(" "))) title("TABLE 1") mtitles("Control" "Treatment" "Difference (2)-(3)") modelwidth(20 20 20 20)  
+*addnotes("Note: The numbers in parantheses are the standard deviations and those in" "square brackets are the standard errors.")
+
+*To determine balance, we look at the difference in means (column 3) and its associated standard error. If the absolute value of the difference is small compared to the standard error, we assume the variable is balanced, that is, not significantly different between treatment and control.
+*Most of the covariates seem to be balanced. Indeed, looking at difference in means for age, educ, black, re74, re75, the the differences are small compared to their respective standard errors. While hisp may seem unbalanced (0.048 [0.027]) and, as such, be collocated into a grey area, there are significant concenrns for nodegree, as it looks potentially unbalanced, that is, the difference is relatively large compared to the standard error (0.127 [0.039]).
+
+
+
+
+
+
+*1b)
+
+reg re78 train
+estat hettest
+
+*strong evidence of heteroskedasticity. 
+
+reg re78 train, robust
+
+*Save beta coefficient and standard error of th regressor train
+	matrix coeff_1b = r(table)
+	matrix list coeff_1b
+	scalar beta_train = coeff_1b[1,1]
+	scalar se_train= coeff_1b[2,1]
+	
+	*Interpretation: If a person receives the training real earnings will c.p. be 1794$ higher on average in 1978 compared to a person who does not receive the training. This effect is statistically significant at the 1% level (p = 0.008). Moreover, the true effect of training is likely between $476 and $3,113.
