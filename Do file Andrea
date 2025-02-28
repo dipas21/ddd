@@ -1,0 +1,393 @@
+*** MICROMETRICS PS1
+*** Andrea Marangio; Dario ; Francesco Palluda
+
+
+
+**** EXERCISE 1 *****
+cd "C:\Users\User\OneDrive - Università Commerciale Luigi Bocconi\Secondo Semestre II anno\Micrometrics\PS1\files"
+
+set scheme s1color
+graph set window fontface "LM Roman 10"
+
+
+***Question 1***
+
+use jtrain2.dta, clear 
+
+describe
+
+
+*1.a
+
+*define a global for variables of interest: 
+global baseline "age educ black hisp nodegree re74 re75" 
+
+sum ${baseline}
+
+
+
+*** METHOD 1: Create a matrix
+*
+* IMPORTANT: need to create a matrix with right number of columns.
+*
+* NOTE! 
+* In a matrix you will input numbers (in Method #2 you might have strings also).
+
+matrix TABLE_1=J(7,6,.)
+*
+* Fill in first row and then append following ones (i.e. other variables)
+* 
+local i=1
+*
+foreach var of varlist age educ black hisp nodegree re74 re75 {
+	
+	sum `var' if train == 1, d
+	
+	matrix TABLE_1[`i',1]=r(mean)
+	matrix TABLE_1[`i',3]=r(sd) 
+	
+	sum `var' if train == 0, d
+	
+	matrix TABLE_1[`i',2]=r(mean)
+	matrix TABLE_1[`i',4]=r(sd)
+	
+	reg `var' train, vce(rob)
+	matrix TABLE_1[`i',5] = r(table)[1,1]
+	matrix TABLE_1[`i',6] = r(table)[2,1]
+	
+	local i=`i'+1 
+	
+}
+* You can also round values to one or two decimals (we'll see this in a minute).
+*
+matrix rownames TABLE_1=age educ black hisp nodegree re74 re75
+matrix colnames TABLE_1=Mean(Treat) Mean(Control) StDev(Treat) StDev(Control) Diff StErrDiff 
+*
+matrix list TABLE_1
+*
+* Export to Excel:
+*
+putexcel set "${outputpath}TABLE_1.xlsx", sheet("TABLE_1") replace
+putexcel A2="age" A3="educ" A4="black" A5="hisp" A6="nodegree" A7="re74" A8="re75"
+putexcel B1="Mean Treated" C1="Mean Control" D1="SD Treated" E1="SD Control" F1="Diff Means" G1="SE Diff"
+putexcel B2=matrix(TABLE_1)
+
+
+
+*potremmo aggiungere: 
+
+ttest age, by(train)
+ttest educ, by(train)
+ttest black, by(train)
+ttest hisp, by(train)
+ttest re74, by(train)
+ttest re75, by(train)
+ttest nodegree, by(train) 
+
+
+****1.b**** 
+
+reg re78 train, vce(rob)
+return list
+matrix table = r(table)
+matrix list table
+
+*saving them as scalar 
+
+scalar Beta_train = r(table)[1,1]
+scalar SE_train = r(table)[2,1]
+
+
+
+**1.c***
+
+*ssc install outreg2
+
+
+*using locals 
+*
+* Regress using local objects 
+local x_1 "train"
+local x_2 "age educ black hisp"
+local x_3 "re74 re75"
+reg re78 `x_1'
+reg re78 `x_1' `x_2' 
+reg re78 `x_1' `x_2' `x_3' 
+*NOTE we could skip this 
+*
+* Export using local objects 
+local x_1 "train"
+reg re78 `x_1', vce(rob)
+outreg2 using TABLE_2.xls, excel replace
+* remember that file will be saved in your current directory
+* to check directory, type "pwd"
+* to change directory, type "cd "C:path\to\folder""
+*
+
+local x_1 "train"
+local x_2 "age educ black hisp"
+reg re78 `x_1' `x_2' , vce(rob)
+outreg2 using TABLE_2.xls, excel append
+*
+local x_1 "train"
+local x_2 "age educ black hisp"
+local x_3 "re74 re75"
+reg re78 `x_1' `x_2' `x_3' , vce(rob)
+outreg2 using TABLE_2.xls, excel append
+
+
+*note we could try to do it also with globals as he did it 
+* Regress using globals objects 
+
+global x_1 = "train"
+global x_2 = "age educ black hisp"
+global x_3 = "re74 re75"
+
+/*
+reg re78 $x_1 , vce(rob)
+reg re78 $x_1 $x_2 , vce(rob)
+reg re78 $x_1 $x_2  $x_3 , vce(rob)
+*
+* Export using local objects 
+
+reg re78 $x_1, vce(rob)
+estimates store reg1
+
+reg re78 $x_1 $x_2 , vce(rob)
+estimates store reg2
+
+reg re78 $x_1 $x_2  $x_3 , vce(rob)
+estimates store reg3
+
+outreg2 [reg1 reg2 reg3] using TABLE_2.xls, excel replace
+*
+* NOTE! You can use *estimates store* to avoid repeating *outreg2* after each
+* regression and keep track of which specification is in each line.
+*
+reg mpg $x_1 $x_2 $x_3
+*
+* Lastly, you can also easily plot your coefficients in a single graph:
+*
+ssc install coefplot
+*
+coefplot, drop(_cons) saving("${outputpath}coeff_plot", replace)
+graph export coeff_plot, as(pdf) replace
+graph export coeff_plot.png, replace
+*
+* NOTE! "coefplot" is highly customizable!
+*/
+
+*****1.d***** DA FINIRE 
+
+** Identifying influential observations **
+
+reg re78 $x_1 $x_2  $x_3 
+dfbeta train, stub(influence_train)
+display influence_train
+sort influence_train
+
+hist influence_train1
+gen ordering = _n
+
+* we need to drop the highest and lowest 3
+reg re78 $x_1 $x_2 $x_3 if ordering > 3 & ordering <= _N - 3, vce(rob)  
+
+reg re78 $x_1 $x_2 $x_3 if ordering > 5 & ordering <= _N - 5, vce(rob)  
+
+reg re78 $x_1 $x_2 $x_3 if ordering > 10 & ordering <= _N - 10, vce(rob)  
+
+**COMMENTO 
+
+
+***Question 2 ****
+
+use jtrain3.dta, clear 
+
+
+**2.a 
+describe
+
+*define a global for variables of interest: 
+
+*** METHOD 1: Create a matrix
+*
+* IMPORTANT: need to create a matrix with right number of columns.
+*
+* NOTE! 
+* In a matrix you will input numbers (in Method #2 you might have strings also).
+
+matrix TABLE_1new=J(7,6, .)
+*
+* Fill in first row and then append following ones (i.e. other variables)
+* 
+local i=1
+*
+foreach var of varlist age educ black hisp re74 re75 {
+	
+	sum `var' if train == 1, d
+	
+	matrix TABLE_1new[`i',1]=r(mean)
+	matrix TABLE_1new[`i',3]=r(sd) 
+	
+	sum `var' if train == 0, d
+	
+	matrix TABLE_1new[`i',2]=r(mean)
+	matrix TABLE_1new[`i',4]=r(sd)
+	
+	reg `var' train, vce(rob)
+	matrix TABLE_1new[`i',5] = r(table)[1,1]
+	matrix TABLE_1new[`i',6] = r(table)[2,1]
+	
+	if "`var'" == "hisp" {
+        local i = `i' + 1 
+    }
+
+	local i=`i'+ 1 
+	
+}
+* You can also round values to one or two decimals (we'll see this in a minute).
+*
+matrix rownames TABLE_1new=age educ black hisp re74 re75
+matrix colnames TABLE_1new=Mean(Treat) Mean(Control) StDev(Treat StDev(Control) Diff StErrDiff 
+
+matrix list TABLE_1new
+
+* Export to Excel:
+
+putexcel set "${outputpath}TABLE_1.xlsx", sheet("TABLE_1") modify
+putexcel H1="Mean Treated New" I1="Mean Control New" J1="SD Treated" K1="SD Control" L1="Diff Means" M1="SE Diff"
+putexcel H2=matrix(TABLE_1new)
+
+
+*2.b
+
+gen treated=.
+set seed 12345
+
+gen random=uniform()
+ sort random
+
+egen random_order=rank(random)
+
+* assign the first N/2 obs to treatment and the rest to control *
+qui sum random
+gen N =r(N)
+replace treated=0 if random_order<=(N/2)
+replace treated=1 if random_order>(N/2) & random_order<=N
+
+
+*ssc install randtreat
+*help randtreat
+
+set seed 12345
+
+
+
+randtreat, generate(treated2) 
+*by default multiple 2
+
+tab treated2
+
+pwcorr treated treated2, sig 
+
+
+
+
+matrix TABLE_2D=J(7,6,.)
+*
+* Fill in first row and then append following ones (i.e. other variables)
+* 
+local i=1
+*
+foreach var of varlist age educ black hisp re74 re75 {
+	
+	sum `var' if treated == 1, d
+	
+	matrix TABLE_2D[`i',1]=r(mean)
+	matrix TABLE_2D[`i',3]=r(sd) 
+	
+	sum `var' if treated == 0, d
+	
+	matrix TABLE_2D[`i',2]=r(mean)
+	matrix TABLE_2D[`i',4]=r(sd)
+	
+	reg `var' treated, vce(rob)
+	matrix TABLE_2D[`i',5] = r(table)[1,1]
+	matrix TABLE_2D[`i',6] = r(table)[2,1]
+	
+	if "`var'" == "hisp" {
+        local i = `i' + 1 
+    }
+	
+	local i=`i'+1 
+	
+}
+* You can also round values to one or two decimals (we'll see this in a minute).
+*
+matrix colnames TABLE_2D=Mean(Treat) Mean(Control) StDev(Treat) StDev(Control) Diff StErrDiff 
+*
+matrix list TABLE_2D
+*
+* Export to Excel:
+*
+putexcel set "${outputpath}TABLE_1.xlsx", sheet("TABLE_1") replace
+putexcel N1="Mean Treated" O1="Mean Control" P1="SD Treated" Q1="SD Control" R1="Diff Means" S1="SE Diff"
+putexcel N2=matrix(TABLE_1)
+
+
+
+***1.e 
+
+
+
+reg re78 treated
+reg re78 treated age educ black hisp
+reg re78 treated age educ black hisp re74 re75
+
+
+
+* Export using local objects 
+local x_1 "treated"
+local x_2 "age educ black hisp"
+local x_3 "re74 re75"
+
+
+reg re78 `x_1', vce(rob)
+outreg2 using TABLE_2.xls, excel append
+
+reg re78 `x_1' `x_2' , vce(rob)
+outreg2 using TABLE_2.xls, excel append
+
+reg re78 `x_1' `x_2' `x_3' , vce(rob)
+outreg2 using TABLE_2.xls, excel append
+
+
+***1.f
+
+
+local x_1 "train"
+local x_2 "age educ black hisp"
+local x_3 "re74 re75"
+
+
+
+reg re78 `x_1', vce(rob)
+count if e(sample) & train == 1
+local n_train = r(N)
+count if e(sample) & train == 0
+local n_cont = r(N)
+outreg2 using TABLE_2.xls, excel append addstat("N. treated",`n_train',"N. control", `n_cont')
+
+reg re78 `x_1' `x_2' , vce(rob)
+count if e(sample) & train == 1
+local n_train2 = r(N)
+count if e(sample) & train == 0
+local n_cont2 = r(N)
+outreg2 using TABLE_2.xls, excel append addstat("N. treated",`n_train2',"N. control", `n_cont2')
+
+reg re78 `x_1' `x_2' `x_3' , vce(rob)
+count if e(sample) & train == 1
+local n_train3 = r(N)
+count if e(sample) & train == 0
+local n_cont3 = r(N)
+outreg2 using TABLE_2.xls, excel append addstat("N. treated",`n_train3',"N. control", `n_cont3')
