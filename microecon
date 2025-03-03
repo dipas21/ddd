@@ -1,1 +1,162 @@
-use stocazzo
+local user = c(username)
+display "`user'"
+if ("`user'" == "dariodipasquali"){
+global filepath "/Users/dariodipasquali/Desktop/PS1/files"
+}
+else{
+global filepath ""
+}
+
+if ("`user'" == "dariodipasquali"){
+global filepath_output "/Users/dariodipasquali/Desktop/PS1/ex"
+}
+else{
+global filepath ""
+}
+
+
+
+use "$filepath/jtrain2.dta", clear
+describe
+
+
+
+*1a)
+
+local Covariates "age educ black hisp nodegree re74 re75"
+*eststo totsample: estpost sum `Covariates'
+eststo control: estpost sum `Covariates' if train==0
+eststo treatment: estpost sum `Covariates' if train==1
+eststo groupdiff: estpost ttest `Covariates', by(train)
+
+*considering "All"
+*esttab totsample control treatment groupdiff, cells(mean(pattern(1 1 1 0) fmt(3)label(" "))& sd(pattern(1 1 1 0) fmt(3) par(( ))label(" ")) & b(pattern(0 0 0 1) fmt(3)label(" ")) & se(pattern(0 0 0 1) fmt(3) par([ ])label(" "))) title("TABLE 1") mtitles("All" "Control" "Treatment" "Difference (2)-(3)") modelwidth(20 20 20 20)
+
+esttab control treatment groupdiff, cells(mean(pattern(1 1 0) fmt(3)label(" "))& sd(pattern(1 1 0) fmt(3) par(( ))label(" ")) & b(pattern(0 0 1) fmt(3)label(" ")) & se(pattern(0 0 1) fmt(3) par([ ])label(" "))) title("TABLE 1") mtitles("Control" "Treatment" "Difference (2)-(3)") modelwidth(20 20 20 20) 
+*addnotes("Note: The numbers in parantheses are the standard deviations and those in" "square brackets are the standard errors.")
+	
+*saving Table_1
+esttab control treatment groupdiff  using "$filepath_output/Table_1.txt", cells(mean(pattern(1 1 0) fmt(3)label(" "))& sd(pattern(1 1 0) fmt(3) par(( ))label(" ")) & b(pattern(0 0 1) fmt(3)label(" ")) & se(pattern(0 0 1) fmt(3) par([ ])label(" "))) title("TABLE 1") mtitles("Control" "Treatment" "Difference (2)-(3)") modelwidth(20 20 20 20)  
+*addnotes("Note: The numbers in parantheses are the standard deviations and those in" "square brackets are the standard errors.")
+
+*To determine balance, we look at the difference in means (column 3) and its associated standard error. If the absolute value of the difference is small compared to the standard error, we assume the variable is balanced, that is, not significantly different between treatment and control.
+*Most of the covariates seem to be balanced. Indeed, looking at difference in means for age, educ, black, re74, re75, the the differences are small compared to their respective standard errors. While hisp may seem unbalanced (0.048 [0.027]) and, as such, be collocated into a grey area, there are significant concenrns for nodegree, as it looks potentially unbalanced, that is, the difference is relatively large compared to the standard error (0.127 [0.039]).
+
+********************************************************************************
+*1b)Regress re78 on train. Save the estimate and the standard error of the coefficient on train as scalars. Interpret the coefficient.
+
+reg re78 train
+estat hettest
+
+*strong evidence of heteroskedasticity.
+
+reg re78 train, robust
+
+*Save beta coefficient and standard error of th regressor train
+	matrix coeff_1b = r(table)
+	matrix list coeff_1b
+	scalar beta_train = coeff_1b[1,1]
+	scalar se_train= coeff_1b[2,1]
+	
+	*Interpretation: If a person receives the training real earnings will c.p. be 1794$ higher on average in 1978 compared to a person who does not receive the training. This effect is statistically significant at the 1% level (p = 0.008). Moreover, the true effect of training is likely between $476 and $3,113.
+*******************************************************************************	
+
+
+
+*Excercise 1c)	Construct a table by sequentially adding the output of the following regressions to each column:
+*(1) re78 on train;
+*(2) re78 on train age educ black hisp;
+*(3) re78 on train age educ black hisp re74 re75;
+*Add rows to the table with the number of controls and treated in each regression. Name it TABLE 2.
+
+	*calculate number of trained and not trained people
+	egen total_treaty  = total(train == 1)
+	egen total_control = total(train == 0)
+	
+	*estimate and store regressions, add scalar for number of treaties and controls
+	local v1 "train" 
+	local v2 "train age educ black hisp"
+	local v3 "train age educ black hisp re74 re75"
+	local regression 1 2 3 
+
+	*Perform regression and save estimates
+	foreach p in `regression'{
+		reg re78 `v`p'', robust
+		estadd scalar N_Control = total_control
+		estadd scalar N_Treaty 	= total_treaty
+		eststo model_1_`p'
+	}
+	
+	*display regression table
+	esttab model_1_1 model_1_2 model_1_3, ///
+			title("Table 2 - Effect on real earnings in 1978") ///
+			mtitles("Model 1.1" "Model 1.2" "Model 1.3") ///
+			b(%12.2f) se(%12.2f) ///
+			scalars(N_Control N_Treaty) ////
+			star(* 0.05 ** 0.01 *** 0.001)
+			
+	
+	*save regression table as.txt file			
+	esttab model_1_1 model_1_2 model_1_3 using "$filepath_output/Table_2.txt", ///
+			title("Table 2 - Effect on real earnings in 1978") ///
+			mtitles("Model 1.1" "Model 1.2" "Model 1.3") ///
+			b(%12.2f) se(%12.2f) ///
+			scalars(N_Control N_Treaty) ////
+			star(* 0.05 ** 0.01 *** 0.001)
+			replace
+
+	*Comparing Model 1.1 (without covariates) to Model 1.2 and Model 1.3, we observe that the estimated coefficient for train is slightly sensitive to the inclusion of additional covariates. The effect decreases from 1.79 to 1.69 (about a 5.6% drop) and further to 1.68 (another 0.6% drop). However, this reduction is minimal, and the effect remains positive and statistically significant, indicating that training has a robust effect on earnings. 
+	*When comparing Model 1.2 to Model 1.3, we see that train, educ, and black are not highly sensitive to additional covariates, as their estimates remain relatively stable. However, the estimate for age drops from 0.06 to 0.05, a 16.7% decrease, while hisp increases from 0.09 to 0.14, a 55.6% increase.  This suggests that while most covariates are not highly sensitive, age and hisp show moderate to high sensitivity when past earnings (re74, re75) are added.
+	
+*******************************************************************************
+
+* 1d: Influence Analysis with dfbeta
+
+Running initial regression (no robust SE) - we are interested in coefficients, which are a-changing wrt having or not robust.
+reg re78 train age educ black hisp re74 re75 
+
+dfbeta train, stub(influence_train)
+
+*Create ranking variables for lowest & highest dfbeta values
+gen influence_abs = abs(influence_train)  
+egen rank_dfbeta = rank(influence_abs), unique 
+
+*Define the number of extreme values to drop
+local drop_values 3 5 10
+local model_num = 4  
+local i 1
+
+*Perform regression and save estimates
+foreach p in `drop_values' {
+    preserve
+        
+        drop if rank_dfbeta <= `p' | rank_dfbeta >= _N - `p' + 1 
+        
+        egen total_control_`i' = total(train == 0)
+        egen total_treaty_`i'  = total(train == 1)
+
+        reg re78 train age educ black hisp re74 re75, robust
+
+        estadd scalar N_Control = total_control_`i'
+        estadd scalar N_Treaty  = total_treaty_`i'
+        eststo model_1_`model_num'
+
+        local model_num = `model_num' + 1
+		local i = `i' + 1
+    restore
+}
+
+*display Regression Table 
+esttab model_1_1 model_1_2 model_1_3 model_1_4 model_1_5 model_1_6,     title("Table 2 - Effect on real earnings in 1978 (including dfbeta analysis)") mtitles("Model 1.1" "Model 1.2" "Model 1.3" "Model 1.4" "Model 1.5" "Model 1.6")     mgroups("Exercise 1c" "Exercise 1d", pattern(1 0 0 1 0 0))     scalars(N_Control N_Treaty)     b(%12.2f) se(%12.2f)     star(* 0.05 ** 0.01 *** 0.001)
+	
+*display Regression Table 
+*esttab model_1_1 model_1_2 model_1_3 model_1_4 model_1_5 model_1_6 using "$filepath_output_Table_2_d",     title("Table 2 - Effect on real earnings in 1978 (including dfbeta analysis)") mtitles("Model 1.1" "Model 1.2" "Model 1.3" "Model 1.4" "Model 1.5" "Model 1.6")     mgroups("Exercise 1c" "Exercise 1d", pattern(1 0 0 1 0 0))     scalars(N_Control N_Treaty)     b(%12.2f) se(%12.2f)     star(* 0.05 ** 0.01 *** 0.001)
+	
+	
+	
+* estimates of the coefficients for the covariates in Models 4, 5, and 6 differ significantly from those in Model 3, then we can conclude that the results are highly influenced by a few extreme observations.
+*A particularly relevant observation is the decline in the coefficient for train. in Model 4, the coefficient dropped to 1.09, and by the time we remove the 10 most influential observations in Model 6, the coefficient fell to 0.60 (67% decrease from the original estimate). Moreover, in Models 4 and 6, the effect of training on earnings is no longer statistically significant, suggesting that much of the initial significance was driven by a few extreme values.
+
+*Other covariates also show sensitivity to the removal of extreme observations.
+
+*Finally, although the sample size reduction is modest, the magnitude of change in the results is substantial. results remain sensitive to outliers, rather than stabilizing.
