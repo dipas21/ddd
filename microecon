@@ -150,7 +150,7 @@ foreach p in `drop_values' {
 esttab model_1_1 model_1_2 model_1_3 model_1_4 model_1_5 model_1_6,     title("Table 2 - Effect on real earnings in 1978 (including dfbeta analysis)") mtitles("Model 1.1" "Model 1.2" "Model 1.3" "Model 1.4" "Model 1.5" "Model 1.6")     mgroups("Exercise 1c" "Exercise 1d", pattern(1 0 0 1 0 0))     scalars(N_Control N_Treaty)     b(%12.2f) se(%12.2f)     star(* 0.05 ** 0.01 *** 0.001)
 	
 *display Regression Table 
-*esttab model_1_1 model_1_2 model_1_3 model_1_4 model_1_5 model_1_6 using "$filepath_output_Table_2_d",     title("Table 2 - Effect on real earnings in 1978 (including dfbeta analysis)") mtitles("Model 1.1" "Model 1.2" "Model 1.3" "Model 1.4" "Model 1.5" "Model 1.6")     mgroups("Exercise 1c" "Exercise 1d", pattern(1 0 0 1 0 0))     scalars(N_Control N_Treaty)     b(%12.2f) se(%12.2f)     star(* 0.05 ** 0.01 *** 0.001)
+*esttab model_1_1 model_1_2 model_1_3 model_1_4 model_1_5 model_1_6 using "$filepath_output/Table_2_d",     title("Table 2 - Effect on real earnings in 1978 (including dfbeta analysis)") mtitles("Model 1.1" "Model 1.2" "Model 1.3" "Model 1.4" "Model 1.5" "Model 1.6")     mgroups("Exercise 1c" "Exercise 1d", pattern(1 0 0 1 0 0))     scalars(N_Control N_Treaty)     b(%12.2f) se(%12.2f)     star(* 0.05 ** 0.01 *** 0.001)
 	
 	
 	
